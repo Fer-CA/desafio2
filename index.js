@@ -1,72 +1,93 @@
 const express = require('express');
-const fs = require("fs");
+const fs = require('fs');
+const path = require('path');
 const app = express();
+
 app.use(express.json());
 
-app.get("/", (req, res) => {
-    res.sendFile(__dirname + "/index.html");
+const PORT = 3000;
+const REPO_PATH = path.join(__dirname, 'repositorio.json');
+
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.get("/canciones", (req, res) => {
+app.get('/canciones', (req, res) => {
     try {
-        const response = fs.readFileSync("repositorio.json");
+        const response = fs.readFileSync(REPO_PATH, 'utf8');
         const canciones = JSON.parse(response);
         res.status(200).json(canciones);
     } catch (error) {
-        res.status(404).send("Error al obtener la información");
+        res.status(500).json({ error: 'Error al obtener la información' });
     }
 });
 
-app.post("/canciones", (req, res) => {
+app.get('/canciones/:id', (req, res) => {
+    const { id } = req.params;
     try {
-        console.log(req.body);  
+        const response = fs.readFileSync(REPO_PATH, 'utf8');
+        const canciones = JSON.parse(response);
+        const cancion = canciones.find((c) => c.id == id);
+        if (!cancion) {
+            return res.status(404).json({ error: 'Canción no encontrada' });
+        }
+        res.status(200).json(cancion);
+    } catch (error) {
+        res.status(500).json({ error: 'Error al obtener la información' });
+    }
+});
+
+app.post('/canciones', (req, res) => {
+    try {
         const { id, titulo, artista, tono } = req.body;
-        if (id == undefined || titulo == undefined || artista == undefined || tono == undefined) {
-            throw new Error("Todos los campos son obligatorios");
+        if (!id || !titulo || !artista || !tono) {
+            return res.status(400).json({ error: 'Todos los campos son obligatorios' });
         }
-        const cancion = req.body;
-        const canciones = JSON.parse(fs.readFileSync("repositorio.json"));
+        const cancion = { id, titulo, artista, tono };
+        const canciones = JSON.parse(fs.readFileSync(REPO_PATH, 'utf8'));
         canciones.push(cancion);
-        fs.writeFileSync("repositorio.json", JSON.stringify(canciones, null, 2));
-        res.status(200).json({ message: "Canción agregada con éxito" });
+        fs.writeFileSync(REPO_PATH, JSON.stringify(canciones, null, 2));
+        res.status(201).json({ message: 'Canción agregada con éxito' });
     } catch (error) {
-        res.status(400).send(`No se pudo crear la canción: ${error.message}`);
+        res.status(500).json({ error: 'No se pudo crear la canción' });
     }
 });
 
-app.put("/canciones/:id", (req, res) => {
+app.put('/canciones/:id', (req, res) => {
     try {
         const { id } = req.params;
-        const cancion = req.body;
-        const canciones = JSON.parse(fs.readFileSync("repositorio.json"));
+        const { titulo, artista, tono } = req.body;
+        if (!titulo || !artista || !tono) {
+            return res.status(400).json({ error: 'Todos los campos son obligatorios' });
+        }
+        const canciones = JSON.parse(fs.readFileSync(REPO_PATH, 'utf8'));
         const index = canciones.findIndex((cancion) => cancion.id == id);
         if (index === -1) {
-            res.status(404).send("La canción no existe");
-        } else {
-            canciones[index] = cancion;
-            fs.writeFileSync("repositorio.json", JSON.stringify(canciones, null, 2));
-            res.status(200).json({ message: "Canción actualizada con éxito" });
+            return res.status(404).json({ error: 'La canción no existe' });
         }
+        canciones[index] = { id, titulo, artista, tono };
+        fs.writeFileSync(REPO_PATH, JSON.stringify(canciones, null, 2));
+        res.status(200).json({ message: 'Canción actualizada con éxito' });
     } catch (error) {
-        res.status(400).json({ message: `No se pudo actualizar la canción: ${error.message}` });
+        res.status(500).json({ error: 'No se pudo actualizar la canción' });
     }
 });
 
-app.delete("/canciones/:id", (req, res) => {
+app.delete('/canciones/:id', (req, res) => {
     try {
         const { id } = req.params;
-        const canciones = JSON.parse(fs.readFileSync("repositorio.json"));
+        const canciones = JSON.parse(fs.readFileSync(REPO_PATH, 'utf8'));
         const index = canciones.findIndex((cancion) => cancion.id == id);
         if (index === -1) {
-            res.status(404).send("La canción no existe, no puede ser eliminada");
-        } else {
-            canciones.splice(index, 1);
-            fs.writeFileSync("repositorio.json", JSON.stringify(canciones, null, 2));
-            res.status(200).json({ message: "Canción eliminada con éxito" });
+            return res.status(404).json({ error: 'La canción no existe, no puede ser eliminada' });
         }
+        canciones.splice(index, 1);
+        fs.writeFileSync(REPO_PATH, JSON.stringify(canciones, null, 2));
+        res.status(200).json({ message: 'Canción eliminada con éxito' });
     } catch (error) {
-        res.status(400).json({ message: `No se pudo eliminar la canción: ${error.message}` });
+        res.status(500).json({ error: 'No se pudo eliminar la canción' });
     }
 });
 
-app.listen(3000, () => console.log("Estoy funcionando"));
+app.listen(PORT, () => console.log(`Servidor funcionando en el puerto ${PORT}`));
+
